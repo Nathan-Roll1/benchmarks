@@ -1,7 +1,8 @@
 """
 Benchmark 3 — Speaker Diarization.
 
-Datasets: AMI, Earnings21 (+ DiPCo, NOTSOFAR when prepared).
+Datasets: AMI-SDM, AMI Mix-Headset, NotSoFar, DiPCo. Earnings21 only when its
+references carry token timing, which the public release does not.
 Metrics:
   - DER at collar 0 (overlap-aware) is the HEADLINE — SOTA-comparable to the
     DiariZen/pyannote model cards. A lenient 0.25 s collar is also reported

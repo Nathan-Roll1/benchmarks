@@ -12,6 +12,7 @@ import json
 import random
 import shutil
 import subprocess
+import tarfile
 import urllib.request
 from pathlib import Path
 from typing import Iterable, Sequence
@@ -30,6 +31,35 @@ def download(url: str, dest: Path, *, force: bool = False) -> Path:
     urllib.request.urlretrieve(url, dest)
     print(f"  done        {dest.name} ({dest.stat().st_size / 1024**2:.1f} MB)")
     return dest
+
+
+def extract_tar(tar_path: Path, dest: Path) -> None:
+    """Extract a downloaded archive without letting a member escape `dest`.
+
+    Uses tarfile's "data" filter where the interpreter has it (3.12, and
+    security releases of 3.9-3.11); otherwise refuses any member, or link
+    target, that would land outside `dest`.
+    """
+    with tarfile.open(tar_path) as tf:
+        if hasattr(tarfile, "data_filter"):
+            tf.extractall(dest, filter="data")
+            return
+        root = dest.resolve()
+
+        def inside(p: Path) -> bool:
+            p = p.resolve()
+            return p == root or root in p.parents
+
+        for m in tf.getmembers():
+            target = dest / m.name
+            link_ok = True
+            if m.issym():
+                link_ok = inside(target.parent / m.linkname)
+            elif m.islnk():
+                link_ok = inside(dest / m.linkname)
+            if not inside(target) or not link_ok:
+                raise RuntimeError(f"refusing to extract unsafe archive member: {m.name}")
+        tf.extractall(dest)
 
 
 def have_ffmpeg() -> bool:

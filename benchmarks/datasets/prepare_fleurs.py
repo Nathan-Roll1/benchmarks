@@ -52,8 +52,13 @@ def prepare(languages: list[str]) -> None:
         try:
             # decode=False avoids the torchcodec audio decoder (datasets>=5);
             # we decode the raw bytes ourselves with soundfile below.
-            ds = load_dataset("google/fleurs", lang, split="test").cast_column(
-                "audio", Audio(decode=False))
+            # Read the test parquet directly (same rows, same order as the
+            # "google/fleurs" config): loading the config fetches every split
+            # first, and train alone is GBs per language.
+            ds = load_dataset(
+                "parquet", split="test",
+                data_files={"test": f"hf://datasets/google/fleurs/parquet-data/{lang}/test-*"},
+            ).cast_column("audio", Audio(decode=False))
         except Exception as e:  # noqa: BLE001
             print(f"  [SKIP] {lang}: {e}")
             continue

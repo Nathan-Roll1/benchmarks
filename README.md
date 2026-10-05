@@ -96,6 +96,9 @@ python -m benchmarks.datasets.prepare_all
 #    python -m benchmarks.datasets.prepare_earnings21
 #    python -m benchmarks.datasets.prepare_fleurs
 #    python -m benchmarks.datasets.prepare_language_switching
+#    python -m benchmarks.datasets.prepare_notsofar
+#    python -m benchmarks.datasets.prepare_dipco          # ~13 GB from Zenodo
+#    HF_TOKEN=... python -m benchmarks.datasets.prepare_spgispeech   # gated: accept the licence first
 
 # 2. Set your API key for the reference provider.
 #    The provider talks to production (https://api.speechrevolutions.com)
@@ -112,6 +115,10 @@ python -m benchmarks.cli run all
 # 4. Optional: freeze your own baseline after a run you trust, so later runs
 #    flag regressions against it. Nothing is shipped for you to compare to.
 python -m benchmarks.cli run all --capture-baseline
+
+# Smoke test: cap every subset at N files (applies to `run all` too;
+# multilingual takes N per language).
+BENCH_MAX_FILES=1 python -m benchmarks.cli run wer
 ```
 
 Every command above runs from the repository root -- the one containing this
@@ -119,13 +126,13 @@ README. `benchmarks/` next to it is the package the `-m` flag resolves.
 
 ---
 
-## The eight benchmarks
+## The six benchmarks
 
 | # | Benchmark | Dataset(s) | Headline outputs |
 |---|-----------|------------|------------------|
-| 1 | **WER** | LibriSpeech clean/other, Earnings21 | `overall_wer`, `overall_clean`, `overall_other`, `overall_earnings21`, S/D/I |
+| 1 | **WER** | LibriSpeech clean/other, Earnings21, SPGISpeech | `overall_wer`, `overall_clean`, `overall_other`, `overall_earnings21`, `overall_spgispeech`, S/D/I |
 | 2 | **Entity Accuracy** | Earnings21 (spaCy NER) | `entity_precision/recall/f1`, `missed_entity_rate`, `false_entity_rate` |
-| 3 | **Diarization** | AMI-SDM, AMI Mix-Headset, Earnings21, NotSoFar, DiPCo | `overall_der_collar025` (0.25 s collar, the figure published on our site), `overall_der` (strict, collar 0), `speaker_error`, `false_alarm`, `missed_speech`, `overall_cpwer`, per-subset breakdown |
+| 3 | **Diarization** | AMI-SDM, AMI Mix-Headset, NotSoFar, DiPCo | `overall_der_collar025` (0.25 s collar, the figure published on our site), `overall_der` (strict, collar 0), `speaker_error`, `false_alarm`, `missed_speech`, `overall_cpwer`, per-subset breakdown |
 | 4 | **Timestamps** | AMI (word-level refs) | `start_mae_ms`, `end_mae_ms`, `*_p90_ms`, `within_50/100/200ms` |
 | 5 | **Multilingual** | FLEURS (14 langs) | `overall_multilingual_wer`, `language_breakdown` (CER for zh/ja) |
 | 6 | **Language Switching** | FLEURS (auto-generated) | `overall_wer`, `switch_boundary_wer`, `switch_detection_accuracy`*, `average_switch_latency_ms`*, `per_language_wer` |
@@ -152,7 +159,7 @@ including the reference provider, which does.
 
 Benchmark sizes (see `config.SIZES`): WER 100 clean + 100 other + 100 Earnings21
 + 100 SPGISpeech; multilingual 14 langs × 10; language switching 20 recordings ×
-4 levels; long-form 15 recordings.
+4 levels.
 
 ---
 
@@ -200,8 +207,8 @@ comparable to third-party figures.
 - **WER aggregation is word-count weighted** (corpus WER via jiwer), never a mean
   of per-file WERs. Languages without word spaces (zh/ja) use **CER**.
 - **Confidence intervals.** Every headline metric carries a 95% bootstrap CI
-  (1000 resamples, fixed seed, resampling the natural unit: files for WER/DER/
-  long-form, matched words for timestamps, files for entities, languages for
+  (1000 resamples, fixed seed, resampling the natural unit: files for WER/DER,
+  matched words for timestamps, files for entities, languages for
   multilingual). **A difference smaller than the CI is not a claim you can
   defend** — report N and CI alongside every published number.
 - **Diarization.** DER is overlap-aware. Our published figures use the
@@ -223,9 +230,9 @@ comparable to third-party figures.
   output for a given (file, features) is immutable, so it's persisted under
   `_transcripts/<provider>/` and reused on re-runs — fixing a scoring script
   (e.g. cpWER) or a `normalize()` bug and re-running costs **$0** in API calls.
-  **Exception: the local Zephyr model is never cached** (`cacheable=False`) — it
-  is actively improved, so every run re-transcribes to reflect current local
-  code. Force fresh external transcription with `--refresh`.
+  **Exception: the reference provider is never cached** (`cacheable=False`) — the
+  system behind it is actively improved, so every run re-transcribes. Force fresh
+  external transcription with `--refresh`.
 - **Datasets are public, permissively licensed, and frozen** (seeded selections;
   see `config.SIZES`). Datasets with licensing or reproducibility doubt
   (Meanwhile, Rev16, TEDLIUM-NC, the wiped CommonVoice HF mirror) are
@@ -246,7 +253,10 @@ subsequent runs will compare against it and exit non-zero on a regression. With
 no baseline present, a run simply reports what it measured.
 
 A run that scores **zero files** is always a failure, never a pass -- the suite
-refuses to report "within tolerance" for a run that transcribed nothing.
+refuses to report "within tolerance" for a run that transcribed nothing. The same
+goes for a **partial** run: if any file failed (a provider's file-size limit, a
+dropped connection), the run is reported as a failure naming the first one,
+because its metrics describe a smaller set than the manifest.
 
 ## Adding a provider
 
@@ -254,4 +264,4 @@ refuses to report "within tolerance" for a run that transcribed nothing.
 2. `register("name", YourProvider)` in `providers/registry.py`.
 3. `python -m benchmarks.cli run all --provider name`.
 
-Nothing else changes — all eight benchmarks score it identically.
+Nothing else changes — all six benchmarks score it identically.

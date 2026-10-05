@@ -31,7 +31,6 @@ import argparse
 import hashlib
 import json
 import shutil
-import tarfile
 
 from .. import config
 from . import _util
@@ -71,8 +70,7 @@ def _ensure_data() -> None:
     if h.hexdigest() != EXPECTED_MD5:
         raise RuntimeError(f"DiPCo MD5 mismatch: {h.hexdigest()} != {EXPECTED_MD5}")
     print("  MD5 OK; extracting ...")
-    with tarfile.open(tgz) as tf:
-        tf.extractall(base)
+    _util.extract_tar(tgz, base)
 
 
 def _to_seconds(ts: str) -> float:
