@@ -24,6 +24,7 @@ import traceback
 
 from . import (
     prepare_ami,
+    prepare_dipco,
     prepare_earnings21,
     prepare_fleurs,
     prepare_language_switching,
@@ -36,6 +37,10 @@ STEPS = [
     # Gated on Hugging Face; backs the WER number on the site.
     ("spgispeech", lambda: _spgispeech()),
     ("ami", lambda: prepare_ami.prepare(prepare_ami.AMI_SC_TEST_SET)),
+    # The AMI-SDM condition behind the published diarization figure.
+    ("ami_sdm", lambda: prepare_ami.prepare_sdm(prepare_ami.AMI_SDM_TEST_SET)),
+    # Public (Zenodo, ~13 GB); the DiPCo subset of the diarization benchmark.
+    ("dipco", lambda: prepare_dipco.prepare()),
     # Public and ungated; backs the NotSoFar diarization number on the site.
     ("notsofar", lambda: prepare_notsofar.prepare()),
     ("earnings21", lambda: prepare_earnings21.prepare(_earnings21_repo())),

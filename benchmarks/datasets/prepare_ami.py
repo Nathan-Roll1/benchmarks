@@ -46,6 +46,29 @@ AUDIO_URL_TEMPLATE = (
 )
 NITE_NS = "{http://nite.sourceforge.net/}"
 
+# AMI-SDM: the standard, SOTA-comparable condition (single distant mic Array1-01,
+# official "only_words" RTTM references from the BUT AMI diarization setup).
+# This is the AMI full-corpus-ASR test partition used by diarization_ami_sdm.jsonl.
+AMI_SDM_TEST_SET = [
+    "IS1009a", "IS1009b", "IS1009c", "IS1009d",
+    "ES2004a", "ES2004b", "ES2004c", "ES2004d",
+    "TS3003a", "TS3003b", "TS3003c", "TS3003d",
+    "EN2002a", "EN2002b", "EN2002c", "EN2002d",
+]
+SDM_AUDIO_URL_TEMPLATE = (
+    "https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/{m}/audio/{m}.Array1-01.wav"
+)
+SDM_RTTM_URL_TEMPLATE = (
+    "https://raw.githubusercontent.com/BUTSpeechFIT/AMI-diarization-setup/main/"
+    "only_words/rttms/test/{m}.rttm"
+)
+# The scored region (UEM) of each meeting; its end time is the manifest duration_s,
+# which the diarization benchmark passes to DER as uem_duration.
+SDM_UEM_URL_TEMPLATE = (
+    "https://raw.githubusercontent.com/BUTSpeechFIT/AMI-diarization-setup/main/"
+    "uems/test/{m}.uem"
+)
+
 
 def _download_annotations(ann_dir: Path) -> None:
     ann_dir.mkdir(parents=True, exist_ok=True)
@@ -192,13 +215,54 @@ def prepare(meeting_ids: list[str], download_audio: bool = True) -> None:
                f"| n={len(ts_entries)}")
 
 
+def prepare_sdm(meeting_ids: list[str]) -> None:
+    """AMI-SDM (Array1-01 + official RTTM) -> manifests/diarization/diarization_ami_sdm.jsonl."""
+    audio_dir = config.audio_dir("diarization")
+    rttm_dir = config.DATA_ROOT / "diarization" / "rttm"
+    entries: list[dict] = []
+    for m in meeting_ids:
+        dest = audio_dir / f"{m}.Array1-01.wav"
+        rttm = rttm_dir / f"{m}.rttm"
+        uem = rttm_dir / f"{m}.uem"
+        try:
+            _util.download(SDM_AUDIO_URL_TEMPLATE.format(m=m), dest)
+            _util.download(SDM_RTTM_URL_TEMPLATE.format(m=m), rttm)
+            _util.download(SDM_UEM_URL_TEMPLATE.format(m=m), uem)
+        except Exception as e:  # noqa: BLE001
+            print(f"  [SKIP] {m}: download failed: {e}")
+            continue
+        segs = []
+        for line in rttm.read_text().splitlines():
+            f = line.split()
+            if len(f) >= 8 and f[0] == "SPEAKER":
+                start, dur = float(f[3]), float(f[4])
+                segs.append({"speaker": f[7], "start": round(start, 3),
+                             "end": round(start + dur, 3)})
+        segs.sort(key=lambda s: s["start"])
+        entries.append({
+            "id": f"ami-{m}",
+            "audio_path": _util.rel_to_data(dest),
+            "speakers": segs,
+            "duration_s": round(float(uem.read_text().split()[3]), 3),
+        })
+        print(f"  + {m} (SDM)  segments={len(segs)}")
+    _util.write_jsonl(
+        config.manifest_path("diarization", "diarization_ami_sdm"), entries,
+        header=f"AMI-SDM (single distant mic, Array1-01) + official RTTM refs "
+               f"| overlap-aware DER | n={len(entries)}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Prepare AMI diarization + timestamp data")
     ap.add_argument("--meetings", type=int, default=20)
     ap.add_argument("--no-download-audio", action="store_true")
+    ap.add_argument("--sdm-meetings", type=int, default=len(AMI_SDM_TEST_SET),
+                    help="how many AMI-SDM meetings to prepare (0 to skip)")
     args = ap.parse_args()
     n = min(args.meetings, len(AMI_SC_TEST_SET))
     prepare(AMI_SC_TEST_SET[:n], download_audio=not args.no_download_audio)
+    if args.sdm_meetings:
+        prepare_sdm(AMI_SDM_TEST_SET[: args.sdm_meetings])
 
 
 if __name__ == "__main__":
