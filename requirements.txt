@@ -6,7 +6,7 @@ jiwer==3.0.4          # WER / CER
 numpy>=1.24.0         # DER, timestamp percentiles, price stats, bootstrap CIs
 scipy>=1.10.0         # Hungarian speaker assignment (DER, cpWER)
 requests>=2.28.0      # provider HTTP
-speechrevolutions>=0.2.0  # official SDK, used by the speech_revolutions provider
+speechrevolutions>=0.3.4  # official SDK for the speech_revolutions provider (0.3.4+: language hint)
 whisper_normalizer==0.0.9  # standard WER text normalization (English + Basic)
 
 # ── Entity benchmark ────────────────────────────────────────────────────────
@@ -18,6 +18,7 @@ spacy>=3.7.0
 datasets>=2.18.0      # Google FLEURS download
 soundfile>=0.12.0     # write FLEURS audio to WAV
 pyarrow>=14.0.0       # read the SPGISpeech parquet shards
+huggingface_hub>=0.20.0  # download the gated SPGISpeech shard (HF_TOKEN)
 
 # ── External tools (not pip) ─────────────────────────────────────────────────
 # ffmpeg + ffprobe   — audio duration, transcoding, language-switch concatenation

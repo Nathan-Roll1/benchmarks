@@ -85,6 +85,9 @@ class SpeechRevolutionsProvider(Provider):
             speaker_labels=features.speaker_labels,
             nltk=features.punctuation,
             custom_vocabulary=list(vocab) or None,
+            # The same hint every other adapter forwards (multilingual benchmark);
+            # None = auto-detect, as before.
+            language=features.language,
         )
         upload_job = self._client.create_upload_job(len(audio_data), options)
         # From here the job EXISTS server-side. If the upload or the completion call

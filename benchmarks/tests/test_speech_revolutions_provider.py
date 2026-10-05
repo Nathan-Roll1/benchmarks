@@ -74,6 +74,20 @@ def test_requested_options_match_the_features(tmp_path):
     assert o.speaker_labels is True
     # The API calls sentence segmentation "nltk"; the harness calls it punctuation.
     assert o.nltk is True
+    # No hint unless the benchmark gives one: auto-detect.
+    assert o.language is None
+
+
+def test_language_hint_is_forwarded(tmp_path):
+    """Multilingual hands every provider the file's language; ours must use it too.
+
+    Without it we alone were scored with language ID on, against competitors
+    that were told the language -- an unfair comparison in their favour.
+    """
+    client = _FakeClient()
+    _provider(client).submit(_audio(tmp_path), Features(language="ja"))
+    assert client.options.language == "ja"
+    assert client.options.to_payload()["language"] == "ja"
 
 
 # ── what it cleans up ────────────────────────────────────────────────────────
