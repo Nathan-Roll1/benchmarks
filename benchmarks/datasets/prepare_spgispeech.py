@@ -45,14 +45,38 @@ def _wav_duration(raw: bytes) -> float:
         return w.getnframes() / float(w.getframerate())
 
 
+_LICENCE_URL = "https://huggingface.co/datasets/kensho/spgispeech"
+
+
+def _fetch_default_shard(parquet_path: Path) -> None:
+    """Download the default shard with HF_TOKEN (the dataset is gated: accept its licence first)."""
+    if parquet_path != _DEFAULT_SHARD or parquet_path.exists() or not os.environ.get("HF_TOKEN"):
+        return
+    from huggingface_hub import hf_hub_download
+    from huggingface_hub.utils import GatedRepoError, HfHubHTTPError
+
+    print(f"  downloading kensho/spgispeech test shard -> {parquet_path}")
+    try:
+        hf_hub_download("kensho/spgispeech", "test/test-00000-of-00003.parquet",
+                        repo_type="dataset", local_dir=str(config.DATA_ROOT / "spgispeech_raw"))
+    except GatedRepoError as e:
+        raise SystemExit(
+            "HF_TOKEN has no access to kensho/spgispeech, which is gated. Accept the "
+            f"dataset licence at {_LICENCE_URL} with the token's account, then rerun."
+        ) from e
+    except HfHubHTTPError as e:
+        raise SystemExit(f"could not download the SPGISpeech shard: {e}") from e
+
+
 def prepare(parquet_path: Path) -> None:
+    _fetch_default_shard(parquet_path)
     if not parquet_path.exists():
         raise SystemExit(
             f"SPGISpeech shard not found: {parquet_path}\n"
-            "Download it first, e.g.:\n"
-            "  HF_TOKEN=... python -c \"from huggingface_hub import hf_hub_download; "
-            "hf_hub_download('kensho/spgispeech','test/test-00000-of-00003.parquet',"
-            "repo_type='dataset',local_dir='benchmarks/_data/spgispeech_raw')\""
+            f"The dataset is gated on Hugging Face: accept its licence at {_LICENCE_URL},\n"
+            "then rerun with a token from that account and the shard downloads itself:\n"
+            "  HF_TOKEN=... python -m benchmarks.datasets.prepare_spgispeech\n"
+            "or pass --parquet <path> to a shard you already have."
         )
 
     audio_dir = config.audio_dir("wer")
