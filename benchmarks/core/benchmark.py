@@ -199,11 +199,23 @@ class Benchmark:
                 "treating as failure rather than as a pass"
             ]
 
+        # A PARTIAL run is not a pass either. Files that failed (a provider's size limit, a
+        # dropped connection) are left out of every metric, so the summary describes a
+        # smaller set than the manifest -- and "within tolerance" over it is a comparison
+        # nobody asked for. Reported whether or not a baseline exists.
+        failed = [p for p in results.get("per_file", []) if p.get("error")]
+        regressions: list[str] = []
+        if failed:
+            first = failed[0]
+            regressions.append(
+                f"partial run: {len(failed)} file(s) failed and were not scored "
+                f"(first: {first.get('id')}: {str(first.get('error'))[:160]})"
+            )
+
         baseline = self.load_baseline(provider_name)
         if not baseline:
-            return []
+            return regressions
         bl = baseline.get("summary", {})
-        regressions: list[str] = []
         for metric, (direction, tol) in self.regression_specs.items():
             base_v = bl.get(metric)
             cur_v = cur.get(metric)
