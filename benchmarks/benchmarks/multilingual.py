@@ -11,6 +11,7 @@ Output: overall_multilingual_wer, language_breakdown.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 
 from ..config import CHARACTER_LEVEL_LANGUAGES, LANGUAGE_HINTS
@@ -48,9 +49,14 @@ class MultilingualBenchmark(Benchmark):
         for e in entries:
             by_lang.setdefault(e.get("language", "unknown"), []).append(e)
 
+        # BENCH_MAX_FILES caps each LANGUAGE here (each is a subset in all but name),
+        # so a smoke run still covers all 14 hints instead of only the first language.
+        limit = os.environ.get("BENCH_MAX_FILES")
         runs: dict[str, list[TranscriptionResult]] = {}
         for lang, lang_entries in by_lang.items():
             items = items_for_provider(lang_entries)
+            if limit:
+                items = items[: int(limit)]
             if not items:
                 runs[lang] = []
                 continue

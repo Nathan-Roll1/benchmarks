@@ -65,6 +65,9 @@ def run_suite(provider: Provider, benchmarks: list[Benchmark], *, progress: bool
                 layout[b.name][subset] = []
                 continue
             items = items_for_provider(entries)
+            # Same cap as Benchmark.run(), so a limited `run all` is limited too.
+            if os.environ.get("BENCH_MAX_FILES"):
+                items = items[: int(os.environ["BENCH_MAX_FILES"])]
             pairs: list[tuple[dict, str]] = []
             for it in items:
                 rp = os.path.realpath(it["audio_path"])

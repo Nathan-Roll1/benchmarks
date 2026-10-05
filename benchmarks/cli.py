@@ -30,6 +30,7 @@ import argparse
 import sys
 
 from .benchmarks import available_benchmarks, get_benchmark
+from .providers._common import MissingKeyError
 from .providers.registry import (
     PLANNED_PROVIDERS,
     available_providers,
@@ -76,7 +77,7 @@ def _run_one(name: str, provider, formats: tuple[str, ...],
 def _cmd_run(args: argparse.Namespace) -> int:
     try:
         provider = get_provider(args.provider)
-    except (KeyError, NotImplementedError) as e:
+    except (KeyError, NotImplementedError, MissingKeyError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 2
 
